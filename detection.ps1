@@ -4,7 +4,7 @@
 $targetPath = "C:\Windows\Web\Wallpaper\Intune"
 
 # Lista de arquivos para verificar
-$files = @("setta_combustiveis_agosto.jpg", "papeldeparede.jpg")
+$files = @("papeldeparede.jpg", "papeldeparede2.jpg")
 
 $allFilesPresent = $true
 
