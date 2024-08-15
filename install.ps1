@@ -9,7 +9,7 @@ if (-not (Test-Path $targetPath)) {
 }
 
 # Lista de arquivos para copiar
-$files = @("setta_combustiveis_agosto.jpg", "papeldeparede.jpg")
+$files = @("papeldeparede.jpg", "teladebloqueio.jpg")
 
 foreach ($file in $files) {
     $sourcePath = Join-Path $PSScriptRoot $file
