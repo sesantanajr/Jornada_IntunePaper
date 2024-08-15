@@ -4,7 +4,7 @@
 $targetPath = "C:\Windows\Web\Wallpaper\Intune"
 
 # Lista de arquivos para remover
-$files = @("setta_combustiveis_agosto.jpg", "papeldeparede.jpg")
+$files = @("papeldeparede.jpg", "teladebloqueio.jpg")
 
 foreach ($file in $files) {
     $filePath = Join-Path $targetPath $file
