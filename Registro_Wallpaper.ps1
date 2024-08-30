@@ -1,8 +1,8 @@
 $Regexists = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\PersonalizationCSP'
 $PersonalizationCSP= 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\PersonalizationCSP'
 
-$ImagePath = 'C:\Windows\Web\Wallpaper\Intune\papeldeparede.jpg'
-$LockScreenImagePath = 'C:\Windows\Web\Wallpaper\Intune\teladebloqueio.jpg'
+$ImagePath = 'C:\Windows\Web\Wallpaper\Intune\wallpaper.jpg'
+$LockScreenImagePath = 'C:\Windows\Web\Wallpaper\Intune\lockscreen.jpg'
 
 if ($Regexists -eq $false){
 
