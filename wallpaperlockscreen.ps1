@@ -1,22 +1,23 @@
 <#
     IntunePaper | Jornada 365
     Script para aplicar papel de parede e tela de bloqueio via Intune.
-    Adaptado para funcionar corretamente no Microsoft Intune
+    Adaptado para funcionar corretamente no Microsoft Intune em Windows 10 e 11 Pro
     Autor: Sergio Sant'Ana Junior
-    Versao: 3.8
+    Versao: 4.1
     Compativel com PowerShell 5.x e 7.x, Windows 10 e Windows 11
     Ultima modificacao: 04/09/2024
 #>
 
 # ============================ CONFIGURACOES ============================
-$directoryPath = "C:\ProgramData\Pictures\Intune"  # Mudado para ProgramData para ser acessível no contexto SYSTEM
+$directoryPath = "C:\ProgramData\Pictures\Intune"
 $wallpaperUrl = "https://raw.githubusercontent.com/sesantanajr/wallpaper/main/wallpaper.png"
 $lockScreenUrl = "https://raw.githubusercontent.com/sesantanajr/wallpaper/main/lockscreen.png"
 $wallpaperPath = "$directoryPath\wallpaper.png"
 $lockScreenPath = "$directoryPath\lockscreen.png"
-$lockScreenRegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\Personalization"
+$lockScreenRegKey = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Personalization"
 $RegKeyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\PersonalizationCSP"
 $spotlightRegKey = "HKLM:\Software\Policies\Microsoft\Windows\CloudContent"
+$logFile = "C:\ProgramData\IntuneWallpaperLog.txt" # Caminho do arquivo de log
 $maxRetries = 3
 $retryDelay = 5
 
@@ -33,13 +34,23 @@ $LockScreenImageValue = $lockScreenPath
 
 # ============================ FUNCOES ============================
 
+# Funcao para registrar logs no arquivo de log
+function Log-Message {
+    param (
+        [string]$message
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "$timestamp - $message"
+    Add-Content -Path $logFile -Value $logEntry
+}
+
 # Funcao para garantir a criacao do diretorio e baixar as imagens de forma robusta
 function Ensure-DirectoryAndDownloadImages {
     if (-Not (Test-Path -Path $directoryPath)) {
         New-Item -Path $directoryPath -ItemType Directory -Force
-        Write-Host "Diretorio criado: $directoryPath"
+        Log-Message "Diretorio criado: $directoryPath"
     } else {
-        Write-Host "Diretorio ja existe: $directoryPath"
+        Log-Message "Diretorio ja existe: $directoryPath"
     }
 
     # Remover imagens existentes, se necessario
@@ -48,28 +59,28 @@ function Ensure-DirectoryAndDownloadImages {
 
     # Tentar baixar as imagens
     try {
-        Write-Host "Baixando imagens de papel de parede e tela de bloqueio..."
+        Log-Message "Baixando imagens de papel de parede e tela de bloqueio..."
         Invoke-WebRequest -Uri $wallpaperUrl -OutFile $wallpaperPath -UseBasicParsing
         Invoke-WebRequest -Uri $lockScreenUrl -OutFile $lockScreenPath -UseBasicParsing
 
         if (-Not (Test-Path -Path $wallpaperPath)) { throw "Erro ao baixar o papel de parede." }
         if (-Not (Test-Path -Path $lockScreenPath)) { throw "Erro ao baixar a tela de bloqueio." }
 
-        Write-Host "Imagens baixadas com sucesso."
+        Log-Message "Imagens baixadas com sucesso."
     } catch {
-        Write-Error "Erro ao baixar as imagens: $_"
+        Log-Message "Erro ao baixar as imagens: $_"
         exit 1
     }
 }
 
 # Funcao para desativar o Windows Spotlight
 function Disable-WindowsSpotlight {
-    Write-Host "Desativando Windows Spotlight..."
+    Log-Message "Desativando Windows Spotlight..."
 
     # Verifica se a chave de registro existe, e cria se necessário
     if (-Not (Test-Path $spotlightRegKey)) {
         New-Item -Path $spotlightRegKey -Force | Out-Null
-        Write-Host "Chave de registro criada: $spotlightRegKey"
+        Log-Message "Chave de registro criada: $spotlightRegKey"
     }
 
     # Desativar Windows Spotlight via registro
@@ -78,7 +89,7 @@ function Disable-WindowsSpotlight {
     Set-ItemProperty -Path $spotlightRegKey -Name 'DisableWindowsSpotlightOnActionCenter' -Value 1
     Set-ItemProperty -Path $spotlightRegKey -Name 'DisableWindowsSpotlightOnLockScreen' -Value 1
     Set-ItemProperty -Path $spotlightRegKey -Name 'DisableWindowsSpotlightSuggestions' -Value 1
-    Write-Host "Windows Spotlight desativado."
+    Log-Message "Windows Spotlight desativado."
 }
 
 # Funcao para forcar a atualizacao do papel de parede usando a API do Windows
@@ -95,67 +106,76 @@ function Force-WallpaperUpdate {
     }
 "@
     [Wallpaper]::SystemParametersInfo([Wallpaper]::SPI_SETDESKWALLPAPER, 0, $wallpaperPath, [Wallpaper]::SPIF_UPDATEINIFILE -bor [Wallpaper]::SPIF_SENDCHANGE)
+    Log-Message "Papel de parede atualizado via API do Windows."
+}
+
+# Funcao para garantir que a chave de registro Personalization exista
+function Ensure-PersonalizationRegKey {
+    if (-Not (Test-Path $lockScreenRegKey)) {
+        New-Item -Path $lockScreenRegKey -Force | Out-Null
+        Log-Message "Chave de registro criada: $lockScreenRegKey"
+    } else {
+        Log-Message "Chave de registro já existe: $lockScreenRegKey"
+    }
 }
 
 # Funcao para aplicar o papel de parede via registro do Windows
 function Apply-WallpaperRegistry {
+    Ensure-PersonalizationRegKey  # Verifica se a chave de Personalization existe
+
     for ($i = 0; $i -lt $maxRetries; $i++) {
         try {
-            Write-Host "Aplicando papel de parede via registro (Tentativa $($i+1) de $maxRetries)..."
+            Log-Message "Aplicando papel de parede via registro (Tentativa $($i+1) de $maxRetries)..."
             
             # Definir o papel de parede no registro
-            Set-ItemProperty -Path 'HKLM:\Software\Policies\Microsoft\Windows\Personalization' -Name 'WallPaper' -Value $wallpaperPath
+            Set-ItemProperty -Path $lockScreenRegKey -Name 'WallPaper' -Value $wallpaperPath
 
             # Forçar a atualização do papel de parede
             Force-WallpaperUpdate
             Start-Sleep -Seconds 2
-            Write-Host "Papel de parede aplicado com sucesso via registro do Windows."
+            Log-Message "Papel de parede aplicado com sucesso via registro do Windows."
 
             break
         } catch {
-            Write-Error "Erro ao aplicar o papel de parede via registro: $_"
+            Log-Message "Erro ao aplicar o papel de parede via registro: $_"
             if ($i -lt $maxRetries - 1) { Start-Sleep -Seconds $retryDelay }
-            else { Write-Error "Falha ao aplicar o papel de parede apos $maxRetries tentativas."; exit 1 }
+            else { Log-Message "Falha ao aplicar o papel de parede apos $maxRetries tentativas."; exit 1 }
         }
     }
 }
 
 # Funcao para aplicar a tela de bloqueio via registro
 function Apply-LockScreen {
+    Ensure-PersonalizationRegKey  # Verifica se a chave de Personalization existe
+
     for ($i = 0; $i -lt $maxRetries; $i++) {
         try {
-            Write-Host "Aplicando tela de bloqueio (Tentativa $($i+1) de $maxRetries)..."
-
-            # Verifica ou cria a chave de registro
-            if (-Not (Test-Path $lockScreenRegKey)) {
-                New-Item -Path $lockScreenRegKey -Force
-                Write-Host "Chave de registro criada: $lockScreenRegKey"
-            }
+            Log-Message "Aplicando tela de bloqueio (Tentativa $($i+1) de $maxRetries)..."
 
             # Aplicar a tela de bloqueio via reg.exe
-            & reg add $lockScreenRegKey /v LockScreenImage /t REG_SZ /d $lockScreenPath /f
-            & reg add $lockScreenRegKey /v LockScreenOverlayImage /t REG_SZ /d $lockScreenPath /f
+            & reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\Personalization" /v LockScreenImage /t REG_SZ /d $lockScreenPath /f
+            & reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\Personalization" /v LockScreenOverlayImage /t REG_SZ /d $lockScreenPath /f
 
-            Write-Host "Tela de bloqueio aplicada via registro do Windows."
+            Log-Message "Tela de bloqueio aplicada via registro do Windows."
 
             break
         } catch {
-            Write-Error "Erro ao aplicar a tela de bloqueio: $_"
+            Log-Message "Erro ao aplicar a tela de bloqueio: $_"
             if ($i -lt $maxRetries - 1) { Start-Sleep -Seconds $retryDelay }
-            else { Write-Error "Falha ao aplicar a tela de bloqueio apos $maxRetries tentativas."; exit 1 }
+            else { Log-Message "Falha ao aplicar a tela de bloqueio apos $maxRetries tentativas."; exit 1 }
         }
     }
 
-    Write-Host "Aplicacao da tela de bloqueio concluida."
+    Log-Message "Aplicacao da tela de bloqueio concluida."
 }
 
 # Funcao para aplicar configuracoes no registro HKLM\PersonalizationCSP
 function Apply-RegistrySettings {
-    Write-Host "Aplicando configuracoes no registro PersonalizationCSP..."
+    Log-Message "Aplicando configuracoes no registro PersonalizationCSP..."
 
     if (-Not (Test-Path -Path $RegKeyPath)) {
         New-Item -Path $RegKeyPath -Force | Out-Null
-        Write-Host "Caminho de registro criado: $RegKeyPath"
+        Log-Message "Caminho de registro criado: $RegKeyPath"
     }
 
     New-ItemProperty -Path $RegKeyPath -Name $DesktopStatus -Value $StatusValue -PropertyType DWORD -Force | Out-Null
@@ -165,37 +185,37 @@ function Apply-RegistrySettings {
     New-ItemProperty -Path $RegKeyPath -Name $LockScreenPathReg -Value $LockScreenImageValue -PropertyType STRING -Force | Out-Null
     New-ItemProperty -Path $RegKeyPath -Name $LockScreenUrlReg -Value $LockScreenImageValue -PropertyType STRING -Force | Out-Null
 
-    Write-Host "Configuracoes aplicadas no registro PersonalizationCSP com sucesso."
+    Log-Message "Configuracoes aplicadas no registro PersonalizationCSP com sucesso."
 }
 
 # Funcao para verificar e instalar a Intune Management Extension (IME)
 function Ensure-IntuneManagementExtension {
-    Write-Host "Verificando Intune Management Extension..."
+    Log-Message "Verificando Intune Management Extension..."
     $imePath = "C:\Program Files (x86)\Microsoft Intune Management Extension\agentexecutor.exe"
     if (-Not (Test-Path $imePath)) {
-        Write-Host "Intune Management Extension nao encontrado. Instalando..."
+        Log-Message "Intune Management Extension nao encontrado. Instalando..."
         # Baixar e instalar a IME
         $imeUrl = "https://go.microsoft.com/fwlink/?linkid=2090973"
         $imeInstaller = "$env:TEMP\IntuneManagementExtension.msi"
         Invoke-WebRequest -Uri $imeUrl -OutFile $imeInstaller
         Start-Process msiexec.exe -ArgumentList "/i $imeInstaller /quiet /norestart" -Wait
         Remove-Item -Path $imeInstaller -Force
-        Write-Host "Intune Management Extension instalado com sucesso."
+        Log-Message "Intune Management Extension instalado com sucesso."
     } else {
-        Write-Host "Intune Management Extension ja esta instalada."
+        Log-Message "Intune Management Extension ja esta instalada."
     }
 }
 
 # Funcao principal para executar o processo
 function Main {
-    Write-Host "Iniciando a aplicacao do papel de parede e tela de bloqueio..."
+    Log-Message "Iniciando a aplicacao do papel de parede e tela de bloqueio..."
     Ensure-IntuneManagementExtension
     Disable-WindowsSpotlight
     Ensure-DirectoryAndDownloadImages
     Apply-WallpaperRegistry
     Apply-LockScreen
     Apply-RegistrySettings
-    Write-Host "Processo concluido com sucesso. Papel de parede e tela de bloqueio aplicados."
+    Log-Message "Processo concluido com sucesso. Papel de parede e tela de bloqueio aplicados."
 }
 
 # Executar a funcao principal
