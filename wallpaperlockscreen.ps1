@@ -9,7 +9,7 @@
 #>
 
 # ============================ CONFIGURACOES ============================
-$directoryPath = "C:\ProgramData\Pictures\Intune"
+$directoryPath = "C:\users\Public\Pictures\Intune"
 $wallpaperUrl = "https://raw.githubusercontent.com/sesantanajr/wallpaper/main/wallpaper.png"
 $lockScreenUrl = "https://raw.githubusercontent.com/sesantanajr/wallpaper/main/lockscreen.png"
 $wallpaperPath = "$directoryPath\wallpaper.png"
