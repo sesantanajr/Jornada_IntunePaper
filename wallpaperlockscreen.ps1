@@ -3,7 +3,7 @@
     Script para aplicar papel de parede e tela de bloqueio via Intune.
     Adaptado para funcionar corretamente no Microsoft Intune em Windows 10 e 11 Pro
     Autor: Sergio Sant'Ana Junior
-    Versao: 4.1
+    https:jornada365.cloud
     Compativel com PowerShell 5.x e 7.x, Windows 10 e Windows 11
     Ultima modificacao: 04/09/2024
 #>
